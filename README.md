@@ -1,4 +1,4 @@
-# EF Core Audit Logging (EN)
+# EF Core Audit Logging
 
 A library for EF Core that produces clear, human-readable audit messages for entity and relationship changes.
 
