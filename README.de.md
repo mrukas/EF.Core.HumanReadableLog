@@ -61,9 +61,9 @@ services.AddDbContext<AppDbContext>((sp, o) => o
 
 ## Optionen (AuditOptions)
 
-- PropertyChangeTemplate (Default: "{DisplayName}: {Old} -> {New}")
-- CollectionAddedTemplate (Default: "{Title} ({EntitySingular}) wurde zu {CollectionDisplay} hinzugefügt")
-- CollectionRemovedTemplate (Default: "{Title} ({EntitySingular}) wurde von {CollectionDisplay} entfernt")
+- PropertyChangeTemplate (Default über Localizer: "{DisplayName}: {Old} -> {New}")
+- CollectionAddedTemplate (Default über Localizer: "{Title} ({EntitySingular}) was added to {CollectionDisplay}")
+- CollectionRemovedTemplate (Default über Localizer: "{Title} ({EntitySingular}) was removed from {CollectionDisplay}")
 - VerboseDelete (Default: true)
 - IncludeUnchangedMarkedProperties (Default: false)
 
@@ -71,13 +71,39 @@ Tokens in Templates:
 - {DisplayName}, {Old}, {New}
 - {Title}, {EntitySingular}, {CollectionDisplay}
 
-## Formatierung der Werte
+## Mehrsprachigkeit und Formatierung der Werte
 
+Die Bibliothek unterstützt Lokalisierung. Standardmäßig ist Englisch aktiviert. Sie können den Localizer global in der DI-Registrierung oder pro Options-Instanz festlegen.
+
+- Standard-Localizer: Englisch
+- Verfügbare Localizer: Englisch, Deutsch
+
+Localizer in DI wählen (empfohlen):
+
+```csharp
+// Deutsch global aktivieren
+services.AddEfCoreAuditLogging<GermanAuditLocalizer>();
+```
+
+Oder pro Options-Instanz setzen:
+
+```csharp
+services.AddEfCoreAuditLogging(opts =>
+{
+    opts.Localizer = new GermanAuditLocalizer();
+});
+```
+
+Hinweise:
+- Wenn ein Template in AuditOptions leer ist, wird das Template des aktuellen Localizers verwendet.
+- Wertformatierung (Null-Symbol und Bool-Werte) wird vom Localizer vorgegeben.
+
+Wertformatierung (Englischer Localizer):
 - null → „∅“
 - DateTime → „yyyy-MM-dd HH:mm:ss“
 - DateOnly → „yyyy-MM-dd“
 - TimeOnly → „HH:mm:ss“
-- bool → „Ja“/„Nein“
+- bool → „Yes“/„No“
 - Enum → ToString()
 
 ## Unterstützte Änderungen
@@ -136,3 +162,98 @@ Alle Tests laufen grün (xUnit, InMemory Provider).
 
 - Mehrsprachigkeit/Localization (Ressourcen/IStringLocalizer)
 - Persistente Audit Trails (DB-Sink + Migrationsbeispiel)
+
+## Beispiele
+
+### 1) Minimales Modell und englische Standardeinstellungen
+
+```csharp
+using EF.Core.HumanReadableLog.Attributes;
+
+[AuditEntityDisplay("User", "Users")]
+public class User
+{
+    public int Id { get; set; }
+    [AuditDisplay("Name"), AuditEntityTitle]
+    public string DisplayName { get; set; } = string.Empty;
+    [AuditDisplay("Pets")]
+    public List<Pet> Pets { get; set; } = new();
+}
+
+[AuditEntityDisplay("Pet", "Pets")]
+[AuditEntityTitleTemplate("{Name}")]
+public class Pet
+{
+    public int Id { get; set; }
+    [AuditDisplay("Name")]
+    public string Name { get; set; } = string.Empty;
+}
+```
+
+Registrierung mit englischem Standard und Verwendung des Interceptors:
+
+```csharp
+services.AddEfCoreAuditLogging(); // Englisch ist der Standard
+services.AddDbContext<AppDbContext>((sp, o) => o.UseSqlite("Data Source=sample.db").UseAuditLogging(sp));
+```
+
+Beispielaktionen und resultierende Nachrichten (Englisch):
+
+- Property-Änderung: Name von Max zu Moritz
+    - Output: `Name: Max -> Moritz`
+- Hinzufügen zur Sammlung: Schnuffi zu Pets
+    - Output: `Schnuffi (Pet) was added to Pets`
+- Entfernen aus der Sammlung: Schnuffi aus Pets
+    - Output: `Schnuffi (Pet) was removed from Pets`
+
+Bool- und Nullformatierung (Englisch):
+- `Yes` / `No` für bool, `∅` für null
+
+### 2) Umstellung auf Deutsch
+
+Deutsch per DI wählen:
+
+```csharp
+using EF.Core.HumanReadableLog.Localization;
+
+services.AddEfCoreAuditLogging<GermanAuditLocalizer>();
+```
+
+Mit deutschen Anzeigenamen:
+
+```csharp
+[AuditEntityDisplay("Haustier", "Haustiere")]
+public class Pet { /* ... */ }
+
+public class User
+{
+    // ...
+    [AuditDisplay("Haustiere")] // Sammlungsbezeichnung
+    public List<Pet> Pets { get; set; } = new();
+}
+```
+
+Resultierende Nachrichten (Deutsch):
+
+- `Name: Max -> Moritz`
+- `Schnuffi (Haustier) wurde zu Haustiere hinzugefügt`
+- `Schnuffi (Haustier) wurde von Haustiere entfernt`
+- Bool: `Ja` / `Nein`
+
+### 3) Override per Options und eigenes Template
+
+```csharp
+services.AddEfCoreAuditLogging(opts =>
+{
+    opts.Localizer = new GermanAuditLocalizer();
+    // Eigenes Property-Template (unabhängig vom Localizer)
+    opts.PropertyChangeTemplate = "Changed: {DisplayName} from {Old} to {New}";
+});
+```
+
+Property-Änderung Ausgabe:
+- `Changed: Name from Max to Moritz`
+
+Verfügbare Tokens:
+- Property: `{DisplayName}`, `{Old}`, `{New}`
+- Collection: `{Title}`, `{EntitySingular}`, `{CollectionDisplay}`

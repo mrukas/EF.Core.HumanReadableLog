@@ -1,4 +1,5 @@
 using EF.Core.HumanReadableLog.Sinks;
+using EF.Core.HumanReadableLog.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,20 @@ public static class ServiceCollectionExtensions
         var options = new AuditOptions();
         configure?.Invoke(options);
 
+        services.AddSingleton(options);
+        services.AddSingleton<IAuditEventSink, LoggerAuditSink>();
+        services.AddScoped<AuditingSaveChangesInterceptor>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers EF Core audit logging with a specific localizer.
+    /// </summary>
+    public static IServiceCollection AddEfCoreAuditLogging<TLocalizer>(this IServiceCollection services, Action<AuditOptions>? configure = null)
+        where TLocalizer : IAuditLocalizer, new()
+    {
+        var options = new AuditOptions { Localizer = new TLocalizer() };
+        configure?.Invoke(options);
         services.AddSingleton(options);
         services.AddSingleton<IAuditEventSink, LoggerAuditSink>();
         services.AddScoped<AuditingSaveChangesInterceptor>();

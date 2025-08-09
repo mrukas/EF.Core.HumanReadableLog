@@ -3,7 +3,7 @@ using EF.Core.HumanReadableLog.Attributes;
 
 namespace EF.Core.HumanReadableLog.Tests;
 
-[AuditEntityDisplay("Haustier", "Haustiere")]
+[AuditEntityDisplay("Pet", "Pets")]
 [AuditEntityTitleTemplate("{Name}")]
 public class Pet
 {
@@ -13,11 +13,11 @@ public class Pet
     public string Name { get; set; } = string.Empty;
 }
 
-[AuditEntityDisplay("Benutzer", "Benutzer")]
+[AuditEntityDisplay("User", "Users")]
 public class User
 {
     public int Id { get; set; }
-    [AuditDisplay("Haustiere")]
+    [AuditDisplay("Pets")]
     public List<Pet> Pets { get; set; } = new();
     [AuditDisplay("Name")]
     public string DisplayName { get; set; } = string.Empty;

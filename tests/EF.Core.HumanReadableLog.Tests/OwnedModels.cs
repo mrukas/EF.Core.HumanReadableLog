@@ -10,8 +10,8 @@ public class OwnedOwner
 
 public class Address
 {
-    [AuditDisplay("Straße")]
+    [AuditDisplay("Street")]
     public string Street { get; set; } = string.Empty;
-    [AuditDisplay("PLZ")]
+    [AuditDisplay("ZIP")]
     public string Zip { get; set; } = string.Empty;
 }

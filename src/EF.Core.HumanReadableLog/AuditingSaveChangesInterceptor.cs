@@ -58,7 +58,10 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
 
                     var displayName = ResolvePropertyDisplay(prop.Metadata.PropertyInfo);
                     var (oldVal, newVal) = (FormatValue(prop.OriginalValue), FormatValue(prop.CurrentValue));
-                    messages.Add(_options.PropertyChangeTemplate
+                    var template = string.IsNullOrWhiteSpace(_options.PropertyChangeTemplate)
+                        ? _options.Localizer.PropertyChangeTemplate
+                        : _options.PropertyChangeTemplate;
+                    messages.Add(template
                         .Replace("{DisplayName}", displayName)
                         .Replace("{Old}", oldVal)
                         .Replace("{New}", newVal));
@@ -73,7 +76,10 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
             if (entry.State == EntityState.Deleted && _options.VerboseDelete && !IsManyToManyJoin(entry))
             {
                 var title = ResolveEntityTitle(entry.Entity) ?? entitySingular;
-                messages.Add($"{title} ({entitySingular}) gelöscht");
+                var template = _options.Localizer.DeletedTemplate;
+                messages.Add(template
+                    .Replace("{Title}", title)
+                    .Replace("{EntitySingular}", entitySingular));
             }
 
             // Collection-like messages via FK with principal collection navigation (one-to-many)
@@ -99,14 +105,20 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
 
                     if (entry.State == EntityState.Added)
                     {
-                        messages.Add(_options.CollectionAddedTemplate
+                        var template = string.IsNullOrWhiteSpace(_options.CollectionAddedTemplate)
+                            ? _options.Localizer.CollectionAddedTemplate
+                            : _options.CollectionAddedTemplate;
+                        messages.Add(template
                             .Replace("{Title}", childTitle)
                             .Replace("{EntitySingular}", childSingular)
                             .Replace("{CollectionDisplay}", collectionDisplay));
                     }
                     else // Deleted
                     {
-                        messages.Add(_options.CollectionRemovedTemplate
+                        var template = string.IsNullOrWhiteSpace(_options.CollectionRemovedTemplate)
+                            ? _options.Localizer.CollectionRemovedTemplate
+                            : _options.CollectionRemovedTemplate;
+                        messages.Add(template
                             .Replace("{Title}", childTitle)
                             .Replace("{EntitySingular}", childSingular)
                             .Replace("{CollectionDisplay}", collectionDisplay));
@@ -152,14 +164,20 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
 
             if (entry.State == EntityState.Added)
             {
-                messages.Add(_options.CollectionAddedTemplate
+                var template = string.IsNullOrWhiteSpace(_options.CollectionAddedTemplate)
+                    ? _options.Localizer.CollectionAddedTemplate
+                    : _options.CollectionAddedTemplate;
+                messages.Add(template
                     .Replace("{Title}", childTitle)
                     .Replace("{EntitySingular}", childSingular)
                     .Replace("{CollectionDisplay}", collectionDisplay));
             }
             else if (entry.State == EntityState.Deleted)
             {
-                messages.Add(_options.CollectionRemovedTemplate
+                var template = string.IsNullOrWhiteSpace(_options.CollectionRemovedTemplate)
+                    ? _options.Localizer.CollectionRemovedTemplate
+                    : _options.CollectionRemovedTemplate;
+                messages.Add(template
                     .Replace("{Title}", childTitle)
                     .Replace("{EntitySingular}", childSingular)
                     .Replace("{CollectionDisplay}", collectionDisplay));
@@ -221,7 +239,7 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
         return (name, name + "s");
     }
 
-    private static string? ResolveEntityTitle(object entity)
+    private string? ResolveEntityTitle(object entity)
     {
         // 1) Template on entity
         var templateAttr = entity.GetType().GetCustomAttribute<AuditEntityTitleTemplateAttribute>();
@@ -244,7 +262,7 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
         return null;
     }
 
-    private static string RenderTemplate(string template, object model)
+    private string RenderTemplate(string template, object model)
     {
         // Supports placeholders like {Property} and nested {Owner.Name}
         // Not a full parser—simple scan for {...}
@@ -256,14 +274,14 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
             if (end < 0) break;
             var token = result.Substring(start, end - start + 1);
             var path = token.Trim('{', '}').Trim();
-            var value = ResolvePath(model, path);
+        var value = ResolvePath(model, path);
             result = result.Remove(start, end - start + 1).Insert(start, value);
             start += value.Length;
         }
         return result;
     }
 
-    private static string ResolvePath(object? current, string path)
+    private string ResolvePath(object? current, string path)
     {
         if (current is null) return string.Empty;
         var segments = path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -277,15 +295,15 @@ public sealed class AuditingSaveChangesInterceptor : SaveChangesInterceptor
         return FormatValue(value);
     }
 
-    private static string FormatValue(object? value)
+    private string FormatValue(object? value)
     {
         return value switch
         {
-            null => "∅",
+            null => _options.Localizer.NullSymbol,
             DateTime dt => dt.ToString("yyyy-MM-dd HH:mm:ss"),
             DateOnly d => d.ToString("yyyy-MM-dd"),
             TimeOnly t => t.ToString("HH:mm:ss"),
-            bool b => b ? "Ja" : "Nein",
+            bool b => _options.Localizer.FormatBool(b),
             Enum e => e.ToString(),
             _ => value.ToString() ?? string.Empty
         };

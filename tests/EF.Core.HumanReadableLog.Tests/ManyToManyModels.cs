@@ -3,15 +3,15 @@ using EF.Core.HumanReadableLog.Attributes;
 
 namespace EF.Core.HumanReadableLog.Tests;
 
-[AuditEntityDisplay("Benutzer", "Benutzer")]
+[AuditEntityDisplay("User", "Users")]
 public class M2MUser
 {
     public int Id { get; set; }
-    [AuditDisplay("Rollen")]
+    [AuditDisplay("Roles")]
     public ICollection<M2MRole> Roles { get; set; } = new List<M2MRole>();
 }
 
-[AuditEntityDisplay("Rolle", "Rollen")]
+[AuditEntityDisplay("Role", "Roles")]
 [AuditEntityTitleTemplate("{Name}")]
 public class M2MRole
 {
@@ -21,16 +21,16 @@ public class M2MRole
 }
 
 // Composite key many-to-many
-[AuditEntityDisplay("Links", "Links")]
+[AuditEntityDisplay("Left", "Lefts")]
 public class M2MLeft
 {
     public int L1 { get; set; }
     public int L2 { get; set; }
-    [AuditDisplay("Rechte")]
+    [AuditDisplay("Rights")]
     public ICollection<M2MRight> Rights { get; set; } = new List<M2MRight>();
 }
 
-[AuditEntityDisplay("Rechts", "Rechte")]
+[AuditEntityDisplay("Right", "Rights")]
 [AuditEntityTitleTemplate("{Name}")]
 public class M2MRight
 {
@@ -52,6 +52,6 @@ public class O2OProfile
     public int Id { get; set; }
     public int UserId { get; set; }
     public O2OUser? User { get; set; }
-    [AuditDisplay("Biografie")]
+    [AuditDisplay("Biography")]
     public string Bio { get; set; } = string.Empty;
 }

@@ -67,7 +67,7 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     }
 }
 
-[AuditEntityDisplay("Notiz", "Notizen")]
+[AuditEntityDisplay("Note", "Notes")]
 [AuditEntityTitleTemplate("{Meta.Title} - {Id}")]
 public class Note
 {
