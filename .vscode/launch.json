@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/launch.json",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch SampleApp",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build SampleApp",
+      "program": "${workspaceFolder}/src/SampleApp/bin/Debug/net9.0/SampleApp.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/SampleApp",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "justMyCode": true
+    },
+    {
+      "name": "Run Tests (dotnet test)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build solution",
+      "program": "/usr/bin/env",
+      "args": [
+        "dotnet",
+        "test",
+        "${workspaceFolder}/EF.Core.HumanReadableLog.sln",
+        "--no-build"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

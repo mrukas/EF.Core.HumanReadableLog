@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/tasks.json",
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build solution",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/EF.Core.HumanReadableLog.sln"
+      ],
+      "problemMatcher": ["$msCompile"],
+      "group": "build"
+    },
+    {
+      "label": "build SampleApp",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/SampleApp/SampleApp.csproj"
+      ],
+      "problemMatcher": ["$msCompile"],
+      "group": "build"
+    }
+  ]
+}
