@@ -209,3 +209,5 @@ Property change output:
 Tokens you can use:
 - Property changes: `{DisplayName}`, `{Old}`, `{New}`
 - Collection changes: `{Title}`, `{EntitySingular}`, `{CollectionDisplay}`
+
+Note: The included SampleApp prints audit messages twice — first with the default English localizer, then after switching to the German localizer at runtime (for demo purposes).
