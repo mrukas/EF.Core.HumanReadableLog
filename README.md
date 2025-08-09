@@ -2,6 +2,11 @@
 
 A library for EF Core that produces clear, human-readable audit messages for entity and relationship changes.
 
+## Requirements
+
+- .NET 9
+- EF Core 9
+
 ## Features
 
 - Property changes (Modified)
@@ -36,6 +41,15 @@ services.AddEfCoreAuditLogging(opts =>
 services.AddDbContext<AppDbContext>((sp, o) => o
     .UseSqlite("Data Source=sample.db")
     .UseAuditLogging(sp));
+```
+
+Tip: You can disable the short delete message if you prefer only property/collection deltas:
+
+```csharp
+services.AddEfCoreAuditLogging(opts =>
+{
+  opts.VerboseDelete = false;
+});
 ```
 
 ## Attributes
@@ -105,6 +119,74 @@ Value formatting (English localizer):
 
 - IAuditEventSink target (default: logger)
 - Implement custom sinks (database/file/etc.)
+
+## Persistent storage (optional)
+
+- Structured audit API + EF-based store. Register with:
+
+  ```csharp
+  services.AddEfCoreAuditStore(o => o.UseSqlite("Data Source=audit.db"));
+  ```
+
+  Note: Structured persistence is only active when the EF-based store (or another IStructuredAuditEventSink) is registered.
+
+  Ensure the audit database is created/migrated at startup (recommended: Migrations):
+
+  ```csharp
+  using (var scope = app.Services.CreateScope())
+  {
+    var auditDb = scope.ServiceProvider.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
+    auditDb.Database.Migrate(); // or EnsureCreated() for demos
+  }
+  ```
+
+- Query history (by root/anchor):
+
+  ```csharp
+  var history = sp.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.IAuditHistoryReader>();
+  // Simple
+  await foreach (var e in history.GetByRootAsync("User", "1")) { /* render */ }
+
+  // With time filter and paging
+  var from = DateTime.UtcNow.AddDays(-7);
+  await foreach (var e in history.GetByRootAsync("User", "1", fromUtc: from, toUtc: null, skip: 0, take: 50)) { /* render */ }
+  ```
+
+- Resolve actor from ClaimsPrincipal (no ASP.NET dependency):
+
+  ```csharp
+  services.AddAuditActorFromClaims(() => httpContextAccessor.HttpContext?.User);
+  ```
+
+### Advanced customization
+
+- Customize root/anchor resolution (group histories under a different base entity):
+
+```csharp
+public sealed class MyRootResolver : EF.Core.HumanReadableLog.Structured.IAuditRootResolver
+{
+  public IEnumerable<EF.Core.HumanReadableLog.Structured.AuditAnchor> ResolveAnchors(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+  {
+    // your logic
+    yield break;
+  }
+}
+
+services.AddScoped<EF.Core.HumanReadableLog.Structured.IAuditRootResolver, MyRootResolver>();
+```
+
+- Provide correlation id and tenant id:
+
+```csharp
+services.AddScoped<EF.Core.HumanReadableLog.Structured.ICorrelationIdProvider, MyCorrelationIdProvider>();
+services.AddScoped<EF.Core.HumanReadableLog.Structured.ITenantProvider, MyTenantProvider>();
+```
+
+### Data model (for UI rendering)
+
+- AuditEvent: Id, TimestampUtc, Actor, CorrelationId, TenantId, Entries[]
+- AuditEntry: EntityType, EntityId, EntityTitle, RootType, RootId, RootTitle, Changes[]
+- AuditChange: ChangeType, PropertyPath/DisplayName/Old/New (for properties), CollectionDisplay/RelatedEntity* (for collections), Message
 
 ## Tests
 

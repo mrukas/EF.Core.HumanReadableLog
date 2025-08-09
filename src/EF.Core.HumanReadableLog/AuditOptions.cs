@@ -38,4 +38,11 @@ public sealed class AuditOptions
     /// default is used.
     /// </summary>
     public string PropertyChangeTemplate { get; set; } = string.Empty;
+
+    // Structured audit hooks (optional). If not provided, defaults will be resolved from DI.
+    internal Structured.IStructuredAuditEventSink? StructuredSink { get; set; }
+    internal Structured.IAuditRootResolver? RootResolver { get; set; }
+    internal Structured.IAuditActorProvider? ActorProvider { get; set; }
+    internal Structured.ICorrelationIdProvider? CorrelationIdProvider { get; set; }
+    internal Structured.ITenantProvider? TenantProvider { get; set; }
 }

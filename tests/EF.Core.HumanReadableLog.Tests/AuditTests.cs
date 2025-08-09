@@ -4,6 +4,8 @@ using EF.Core.HumanReadableLog;
 using EF.Core.HumanReadableLog.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using EF.Core.HumanReadableLog.Structured;
+using EF.Core.HumanReadableLog.Structured.Persistence;
 
 namespace EF.Core.HumanReadableLog.Tests;
 
@@ -22,6 +24,55 @@ public class AuditTests
 
         var db = new TestDbContext(builder.Options);
         return (db, sink);
+    }
+
+    [Fact]
+    public async Task Structured_HistoryReader_Paging_Works()
+    {
+        // Arrange: set up a separate in-memory audit store
+        var opts = new DbContextOptionsBuilder<AuditStoreDbContext>()
+            .UseInMemoryDatabase("audit-" + System.Guid.NewGuid())
+            .Options;
+        await using var auditDb = new AuditStoreDbContext(opts);
+        var sink = new EfCoreStructuredAuditSink(auditDb);
+
+        // Seed two events for same root
+        var evt1 = new AuditEvent
+        {
+            TimestampUtc = System.DateTime.UtcNow.AddMinutes(-2),
+            Entries =
+            {
+                new AuditEntry
+                {
+                    EntityType = "User", EntityId = "1", RootType = "User", RootId = "1",
+                    Changes = { new AuditChange { ChangeType = AuditChangeType.Property, DisplayName = "Name", Old = "A", New = "B" } }
+                }
+            }
+        };
+        var evt2 = new AuditEvent
+        {
+            TimestampUtc = System.DateTime.UtcNow.AddMinutes(-1),
+            Entries =
+            {
+                new AuditEntry
+                {
+                    EntityType = "User", EntityId = "1", RootType = "User", RootId = "1",
+                    Changes = { new AuditChange { ChangeType = AuditChangeType.Property, DisplayName = "Name", Old = "B", New = "C" } }
+                }
+            }
+        };
+        await sink.WriteAsync(new[] { evt1, evt2 });
+
+        var reader = new EfCoreAuditHistoryReader(auditDb);
+        // Act: take only the second event using skip=1
+        var results = new System.Collections.Generic.List<AuditEvent>();
+        await foreach (var e in reader.GetByRootAsync("User", "1", fromUtc: null, toUtc: null, skip: 1, take: 1))
+            results.Add(e);
+
+        // Assert: exactly one, latest change with New = C
+        Assert.Single(results);
+        var latest = results[0];
+        Assert.Equal("C", latest.Entries[0].Changes[0].New);
     }
 
     [Fact]
@@ -49,7 +100,7 @@ public class AuditTests
         user.Pets.Add(new Pet { Name = "Schnuffi" });
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Schnuffi (Pet) was added to Pets"));
+        Assert.Contains(sink.Messages, m => m.Contains("Schnuffi (Pet) was added to Pets"));
     }
 
     [Fact]
@@ -65,19 +116,19 @@ public class AuditTests
         db.Remove(pet);
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Bello (Pet) was removed from Pets"));
+        Assert.Contains(sink.Messages, m => m.Contains("Bello (Pet) was removed from Pets"));
     }
 
     [Fact]
     public async Task EntityTitleTemplate_Renders_Name()
     {
         var (db, sink) = CreateDb();
-    var note = new Note { Meta = new NoteMeta { Title = "Important" } };
+        var note = new Note { Meta = new NoteMeta { Title = "Important" } };
         db.Notes.Add(note);
         await db.SaveChangesAsync();
 
         // Nothing logged on add, but template must not throw; update something artificial to trigger a change
-    note.Meta.Title = "Very Important";
+        note.Meta.Title = "Very Important";
         // No change tracking on NotMapped; simulate by touching a tracked entity
         var user = new User { DisplayName = "X" };
         db.Users.Add(user);
@@ -98,7 +149,7 @@ public class AuditTests
         db.Remove(pet);
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Rocky (Pet) deleted") || m.Contains("Rocky (Pet) was removed from Pets"));
+        Assert.Contains(sink.Messages, m => m.Contains("Rocky (Pet) deleted") || m.Contains("Rocky (Pet) was removed from Pets"));
     }
 
     [Fact]
@@ -119,20 +170,20 @@ public class AuditTests
     [Fact]
     public async Task Custom_PropertyChange_Template_Is_Used()
     {
-    var options = new AuditOptions
+        var options = new AuditOptions
         {
             PropertyChangeTemplate = "Changed: {DisplayName} from {Old} to {New}"
         };
-    options.Localizer = new EF.Core.HumanReadableLog.Localization.EnglishAuditLocalizer();
+        options.Localizer = new EF.Core.HumanReadableLog.Localization.EnglishAuditLocalizer();
         var (db, sink) = CreateDb(options);
-    var user = new User { DisplayName = "Alt" };
+        var user = new User { DisplayName = "Alt" };
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-    user.DisplayName = "Neu";
+        user.DisplayName = "Neu";
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Changed:") && m.Contains("from Alt to Neu"));
+        Assert.Contains(sink.Messages, m => m.Contains("Changed:") && m.Contains("from Alt to Neu"));
     }
 
     [Fact]
@@ -148,7 +199,7 @@ public class AuditTests
         user.Roles.Add(role);
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Admin (Role) was added to Roles"));
+        Assert.Contains(sink.Messages, m => m.Contains("Admin (Role) was added to Roles"));
     }
 
     [Fact]
@@ -164,7 +215,7 @@ public class AuditTests
         user.Roles.Remove(role);
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Editor (Role) was removed from Roles"));
+        Assert.Contains(sink.Messages, m => m.Contains("Editor (Role) was removed from Roles"));
     }
 
     public enum Status { Off, On }
@@ -172,13 +223,13 @@ public class AuditTests
     public class TypeEntity
     {
         public int Id { get; set; }
-    [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Date")]
+        [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Date")]
         public System.DateTime Date { get; set; }
-    [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Active")]
+        [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Active")]
         public bool Active { get; set; }
-    [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Amount")]
+        [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Amount")]
         public decimal Amount { get; set; }
-    [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Status")]
+        [EF.Core.HumanReadableLog.Attributes.AuditDisplay("Status")]
         public Status Mode { get; set; }
     }
 
@@ -186,7 +237,7 @@ public class AuditTests
     public async Task Different_DataTypes_Are_Formatted()
     {
         var (db, sink) = CreateDb();
-        db.Add(new TypeEntity { Date = new System.DateTime(2024,1,1,10,30,0), Active = false, Amount = 1.23m, Mode = Status.Off });
+        db.Add(new TypeEntity { Date = new System.DateTime(2024, 1, 1, 10, 30, 0), Active = false, Amount = 1.23m, Mode = Status.Off });
         await db.SaveChangesAsync();
 
         var e = await db.Set<TypeEntity>().FirstAsync();
@@ -197,8 +248,8 @@ public class AuditTests
         await db.SaveChangesAsync();
 
         // Check some key formats (others implicitly covered)
-    Assert.Contains(sink.Messages, m => m.Contains("Date:") && m.Contains("2024-01-01 10:30:00") && m.Contains("2024-01-01 11:30:00"));
-    Assert.Contains(sink.Messages, m => m.Contains("Active:") && m.Contains("No") && m.Contains("Yes"));
+        Assert.Contains(sink.Messages, m => m.Contains("Date:") && m.Contains("2024-01-01 10:30:00") && m.Contains("2024-01-01 11:30:00"));
+        Assert.Contains(sink.Messages, m => m.Contains("Active:") && m.Contains("No") && m.Contains("Yes"));
         Assert.Contains(sink.Messages, m => m.Contains("Status:") && m.Contains("Off") && m.Contains("On"));
     }
 
@@ -213,7 +264,7 @@ public class AuditTests
         owner.Address.Street = "Neu";
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Street:") && m.Contains("Alt") && m.Contains("Neu"));
+        Assert.Contains(sink.Messages, m => m.Contains("Street:") && m.Contains("Alt") && m.Contains("Neu"));
     }
 
     [Fact]
@@ -251,11 +302,11 @@ public class AuditTests
 
         left.Rights.Add(right);
         await db.SaveChangesAsync();
-    Assert.Contains(sink.Messages, m => m.Contains("KeyRole (Right) was added to Rights"));
+        Assert.Contains(sink.Messages, m => m.Contains("KeyRole (Right) was added to Rights"));
 
         left.Rights.Remove(right);
         await db.SaveChangesAsync();
-    Assert.Contains(sink.Messages, m => m.Contains("KeyRole (Right) was removed from Rights"));
+        Assert.Contains(sink.Messages, m => m.Contains("KeyRole (Right) was removed from Rights"));
     }
 
     [Fact]
@@ -269,6 +320,6 @@ public class AuditTests
         u.Profile!.Bio = "Neu";
         await db.SaveChangesAsync();
 
-    Assert.Contains(sink.Messages, m => m.Contains("Biography:") && m.Contains("Alt") && m.Contains("Neu"));
+        Assert.Contains(sink.Messages, m => m.Contains("Biography:") && m.Contains("Alt") && m.Contains("Neu"));
     }
 }

@@ -2,6 +2,11 @@
 
 Bibliothek für EF Core, die Änderungen an Entities in klaren, anpassbaren Nachrichten protokolliert.
 
+## Voraussetzungen
+
+- .NET 9
+- EF Core 9
+
 ## Features
 
 - Property-Änderungen (Modified):
@@ -35,6 +40,15 @@ services.AddEfCoreAuditLogging(opts =>
 services.AddDbContext<AppDbContext>((sp, o) => o
         .UseSqlite("Data Source=sample.db")
         .UseAuditLogging(sp));
+```
+
+Hinweis: Die kurze Delete-Meldung kann deaktiviert werden, wenn nur Deltas gewünscht sind:
+
+```csharp
+services.AddEfCoreAuditLogging(opts =>
+{
+    opts.VerboseDelete = false;
+});
 ```
 
 ## Attribute-Referenz
@@ -146,6 +160,74 @@ Ergebnisbeispiele:
 
 - IAuditEventSink: Ziel der Nachrichten (Default: Logger)
 - Eigene Sinks: z. B. Datenbank/Datei
+
+## Persistente Speicherung (optional)
+
+- Strukturierte Audit-API + EF-Store. Registrierung:
+
+    ```csharp
+    services.AddEfCoreAuditStore(o => o.UseSqlite("Data Source=audit.db"));
+    ```
+
+        Hinweis: Die strukturierte Persistierung ist nur aktiv, wenn der EF-Store (oder ein anderer IStructuredAuditEventSink) registriert ist.
+
+        Audit-Datenbank beim Start erstellen/migrieren (empfohlen: Migrations):
+
+        ```csharp
+        using (var scope = app.Services.CreateScope())
+        {
+                var auditDb = scope.ServiceProvider.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
+                auditDb.Database.Migrate(); // oder EnsureCreated() für Demos
+        }
+        ```
+
+- Verlauf (pro Root/Anker) abfragen:
+
+    ```csharp
+    var history = sp.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.IAuditHistoryReader>();
+    // Einfach
+    await foreach (var e in history.GetByRootAsync("User", "1")) { /* render */ }
+
+    // Mit Zeitfilter und Paging
+    var from = DateTime.UtcNow.AddDays(-7);
+    await foreach (var e in history.GetByRootAsync("User", "1", fromUtc: from, toUtc: null, skip: 0, take: 50)) { /* render */ }
+    ```
+
+- Actor (Benutzer) aus Claims ableiten (ohne ASP.NET-Abhängigkeit):
+
+    ```csharp
+    services.AddAuditActorFromClaims(() => httpContextAccessor.HttpContext?.User);
+    ```
+
+    ### Erweiterte Anpassung
+
+    - Eigene Root/Anchor-Ermittlung (welcher Basistyp gruppiert den Verlauf?):
+
+    ```csharp
+    public sealed class MeinRootResolver : EF.Core.HumanReadableLog.Structured.IAuditRootResolver
+    {
+        public IEnumerable<EF.Core.HumanReadableLog.Structured.AuditAnchor> ResolveAnchors(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+        {
+            // eigene Logik
+            yield break;
+        }
+    }
+
+    services.AddScoped<EF.Core.HumanReadableLog.Structured.IAuditRootResolver, MeinRootResolver>();
+    ```
+
+    - CorrelationId/TenantId bereitstellen:
+
+    ```csharp
+    services.AddScoped<EF.Core.HumanReadableLog.Structured.ICorrelationIdProvider, MeineCorrelationIdQuelle>();
+    services.AddScoped<EF.Core.HumanReadableLog.Structured.ITenantProvider, MeinTenantProvider>();
+    ```
+
+    ### Datenmodell (für UI-Darstellung)
+
+    - AuditEvent: Id, TimestampUtc, Actor, CorrelationId, TenantId, Entries[]
+    - AuditEntry: EntityType, EntityId, EntityTitle, RootType, RootId, RootTitle, Changes[]
+    - AuditChange: ChangeType, PropertyPath/DisplayName/Old/New (Properties), CollectionDisplay/RelatedEntity* (Sammlungen), Message
 
 ## Tests (Abdeckung)
 
