@@ -28,7 +28,8 @@ public class Program
                     // Default: English localizer
                     s.AddEfCoreAuditLogging();
                     // Add a SQLite-based audit store next to sample.db for demo
-                    s.AddEfCoreAuditStore(o => o.UseSqlite("Data Source=audit.db"));
+                    s.AddEfCoreAuditStore(o => o.UseSqlite("Data Source=audit.db",
+                        opts => { opts.MigrationsHistoryTable("__AuditMigrationHistory"); }));
                     s.AddDbContext<AppDbContext>((sp, o) => o
                         .UseSqlite("Data Source=sample.db")
                         .UseAuditLogging(sp));
