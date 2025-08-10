@@ -42,6 +42,7 @@ public class Program
         var auditDb = scope.ServiceProvider.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
         await db.Database.EnsureDeletedAsync();
         await db.Database.EnsureCreatedAsync();
+        await auditDb.Database.EnsureDeletedAsync();
         await auditDb.Database.EnsureCreatedAsync();
         // In real apps with migrations, prefer:
         // await db.Database.MigrateAsync();
@@ -71,9 +72,6 @@ public class Program
 
         var db2 = services.GetRequiredService<AppDbContext>();
         var auditDb2 = services.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
-        await db2.Database.EnsureDeletedAsync();
-        await db2.Database.EnsureCreatedAsync();
-        await auditDb2.Database.EnsureCreatedAsync();
 
         var user2 = new User();
         user2.Pets.Add(new Pet { Name = "Schnuffi" });
@@ -84,7 +82,16 @@ public class Program
         user2.Pets.Add(new Pet { Name = "Bello" });
         await db2.SaveChangesAsync();
 
+        // var firstPet2 = user2.Pets.First();
+
+        // var firstPet2 = await db2.Entry(user2)
+        //     .Collection(u => u.Pets)
+        //     .Query()
+        //     .OrderBy(p => p.Id)
+        //     .FirstAsync();
+
         var firstPet2 = await db2.Pets.FirstAsync();
+
         db2.Remove(firstPet2);
         await db2.SaveChangesAsync();
         // Fetch and print history for user2 as demo

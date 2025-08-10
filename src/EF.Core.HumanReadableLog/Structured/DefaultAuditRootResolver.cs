@@ -46,6 +46,51 @@ internal sealed class DefaultAuditRootResolver : IAuditRootResolver
                 };
                 yield break;
             }
+
+            // Fallback: if principal isn't tracked, anchor using FK values on the dependent
+            string? fallbackId = null;
+            var depValues = fkToPrincipal.Properties
+                .Select(p => {
+                    var prop = entry.Property(p.Name);
+                    var cur = prop.CurrentValue;
+                    var orig = prop.OriginalValue;
+                    var clr = p.ClrType;
+                    bool IsDefault(object? x) => x is null || (clr.IsValueType && Equals(x, Activator.CreateInstance(clr)));
+                    // On delete EF may null/reset FKs; prefer original if current is default
+                    var val = (entry.State == Microsoft.EntityFrameworkCore.EntityState.Deleted && IsDefault(cur) && !IsDefault(orig)) ? orig : cur;
+                    return val ?? orig;
+                })
+                .ToArray();
+            if (depValues.Length > 0 && depValues.Any(v => v is not null))
+            {
+                fallbackId = string.Join("|", depValues.Select(v => v is null ? "∅" : v.ToString()));
+            }
+            if (!string.IsNullOrEmpty(fallbackId))
+            {
+                yield return new AuditAnchor
+                {
+                    RootType = fkToPrincipal.PrincipalEntityType.ClrType.Name,
+                    RootId = fallbackId,
+                    RootTitle = null
+                };
+                yield break;
+            }
+
+            // As a last resort, try getting FK values from the database (entity still exists before delete is committed)
+            if (entry.State == Microsoft.EntityFrameworkCore.EntityState.Deleted)
+            {
+                string? dbFallbackId = GetFkCompositeIdFromDb(entry, fkToPrincipal);
+                if (!string.IsNullOrEmpty(dbFallbackId))
+                {
+                    yield return new AuditAnchor
+                    {
+                        RootType = fkToPrincipal.PrincipalEntityType.ClrType.Name,
+                        RootId = dbFallbackId,
+                        RootTitle = null
+                    };
+                    yield break;
+                }
+            }
         }
 
         // Fallback: anchor to the entity itself
@@ -90,5 +135,18 @@ internal sealed class DefaultAuditRootResolver : IAuditRootResolver
         }
         catch { }
         return null;
+    }
+
+    private static string? GetFkCompositeIdFromDb(EntityEntry entry, IForeignKey fk)
+    {
+        try
+        {
+            var dbValues = entry.GetDatabaseValues();
+            if (dbValues is null) return null;
+            var vals = fk.Properties.Select(p => dbValues[p]).ToArray();
+            if (vals.Length == 0 || !vals.Any(v => v is not null)) return null;
+            return string.Join("|", vals.Select(v => v is null ? "∅" : v.ToString()));
+        }
+        catch { return null; }
     }
 }
