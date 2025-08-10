@@ -44,27 +44,13 @@ public class Program
         await db.Database.EnsureCreatedAsync();
         await auditDb.Database.EnsureDeletedAsync();
         await auditDb.Database.EnsureCreatedAsync();
-        // In real apps with migrations, prefer:
-        // await db.Database.MigrateAsync();
-        // await auditDb.Database.MigrateAsync();
 
-        Console.WriteLine("=== English (default templates; model labels are German for demo) ===");
         var user = new User();
         user.Pets.Add(new Pet { Name = "Schnuffi", FavoriteFoods = { new Food { Name = "Knochen", Calories = 100 } } });
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        user.Pets.Add(new Pet { Name = "Bello" });
-        await db.SaveChangesAsync();
-
-        var firstPet = await db.Pets.FirstAsync();
-        firstPet.FavoriteFoods.Add(new Food { Name = "Fisch", Calories = 200 });
-        firstPet.FavoriteFoods.Remove(firstPet.FavoriteFoods.First());
-        await db.SaveChangesAsync();
-
-        // Demonstrate switching to German localizer in a fresh scope
-        Console.WriteLine("=== German (configured via options; model labels: Haustier/Haustiere) ===");
         await using var scope2 = host.Services.CreateAsyncScope();
         var services = scope2.ServiceProvider;
         var options = services.GetRequiredService<EF.Core.HumanReadableLog.AuditOptions>();
@@ -72,23 +58,6 @@ public class Program
 
         var db2 = services.GetRequiredService<AppDbContext>();
         var auditDb2 = services.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
-
-        var user2 = new User();
-        user2.Pets.Add(new Pet { Name = "Schnuffi" });
-        db2.Users.Add(user2);
-        await db2.SaveChangesAsync();
-        var user2Id = user2.Id.ToString();
-
-        user2.Pets.Add(new Pet { Name = "Bello" });
-        await db2.SaveChangesAsync();
-
-        // var firstPet2 = user2.Pets.First();
-
-        // var firstPet2 = await db2.Entry(user2)
-        //     .Collection(u => u.Pets)
-        //     .Query()
-        //     .OrderBy(p => p.Id)
-        //     .FirstAsync();
 
         var firstPet2 = await db2.Pets.FirstAsync();
 
@@ -103,20 +72,6 @@ public class Program
                 foreach (var change in entry.Changes)
                 {
                     Console.WriteLine($"[AUDIT] {evt.TimestampUtc:o} - {change.Message}");
-                }
-            }
-        }
-
-        // Filtered history: last 10 minutes, first 1 item (paging)
-        Console.WriteLine("=== Filtered history (last 10 minutes, first 1) ===");
-        var from = DateTime.UtcNow.AddMinutes(-10);
-        await foreach (var evt in history.GetByRootAsync("User", user2Id, fromUtc: from, toUtc: null, skip: 0, take: 1))
-        {
-            foreach (var entry in evt.Entries)
-            {
-                foreach (var change in entry.Changes)
-                {
-                    Console.WriteLine($"[AUDIT:FILTERED] {evt.TimestampUtc:o} - {change.Message}");
                 }
             }
         }
