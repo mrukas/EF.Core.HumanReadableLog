@@ -47,7 +47,7 @@ public class Program
 
         Console.WriteLine("=== English (default templates; model labels are German for demo) ===");
         var user = new User();
-        user.Pets.Add(new Pet { Name = "Schnuffi" });
+        user.Pets.Add(new Pet { Name = "Schnuffi", FavoriteFoods = { new Food { Name = "Knochen", Calories = 100 } } });
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
@@ -56,7 +56,8 @@ public class Program
         await db.SaveChangesAsync();
 
         var firstPet = await db.Pets.FirstAsync();
-        db.Remove(firstPet);
+        firstPet.FavoriteFoods.Add(new Food { Name = "Fisch", Calories = 200 });
+        firstPet.FavoriteFoods.Remove(firstPet.FavoriteFoods.First());
         await db.SaveChangesAsync();
 
         // Demonstrate switching to German localizer in a fresh scope

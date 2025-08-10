@@ -11,6 +11,19 @@ public class Pet
     [AuditEntityTitle]
     [AuditDisplay("Name")]
     public string Name { get; set; } = string.Empty;
+
+    public List<Food> FavoriteFoods { get; set; } = new();
+}
+
+public class Food {
+    public int Id { get; set; }
+
+    [AuditEntityTitle]
+    [AuditDisplay("Name")]
+    public string Name { get; set; } = string.Empty;
+
+    [AuditDisplay("Kalorien")]
+    public int Calories { get; set; }
 }
 
 [AuditEntityDisplay("Benutzer", "Benutzer")]

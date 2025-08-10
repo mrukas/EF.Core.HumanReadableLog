@@ -454,4 +454,31 @@ public class AuditTests
         var lines = AuditHistoryFormatter.FormatWithParentContext(events).ToList();
         Assert.Contains(lines, l => l.Contains("Acme (Company) -> Apollo (Project) -> Week 1 (StatusReport) -> Note (Comment) was removed from Comments"));
     }
+
+    [Fact]
+    public async Task Shadow_FK_Property_Changes_Are_Ignored_For_Pet2_Food2()
+    {
+        // This models a 1:n where the FK is a shadow property on Food2.
+        // We expect only natural language collection messages and no noisy ": 1 -> ∅" logs.
+        var (db, sink) = CreateDb();
+
+        var pet = new Pet2();
+        db.Pets2.Add(pet);
+        await db.SaveChangesAsync();
+
+        var food = new Food2 { Name = "Bone", Calories = 50 };
+        pet.FavoriteFoods.Add(food);
+        await db.SaveChangesAsync();
+
+        // Ensure add message present
+        Assert.Contains(sink.Messages, m => m.Contains("Bone (Food) was added to FavoriteFoods"));
+
+    // Remove via deletion (consistent with other tests) and ensure remove message present
+    db.Remove(food);
+    await db.SaveChangesAsync();
+        Assert.Contains(sink.Messages, m => m.Contains("Bone (Food) was removed from FavoriteFoods"));
+
+        // Verify no shadow-property noise
+        Assert.DoesNotContain(sink.Messages, m => m.Contains(" -> ∅"));
+    }
 }

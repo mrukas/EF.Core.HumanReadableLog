@@ -36,6 +36,8 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     public DbSet<StatusReport> StatusReports => Set<StatusReport>();
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<Pet2> Pets2 => Set<Pet2>();
+    public DbSet<Food2> Foods2 => Set<Food2>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +90,12 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
             .HasMany(r => r.Comments)
             .WithOne(c => c.StatusReport!)
             .HasForeignKey(c => c.StatusReportId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Pet2 -> Food2 (1:n)
+        modelBuilder.Entity<Pet2>()
+            .HasMany(p => p.FavoriteFoods)
+            .WithOne()
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
