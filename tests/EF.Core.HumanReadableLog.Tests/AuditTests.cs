@@ -322,4 +322,85 @@ public class AuditTests
 
         Assert.Contains(sink.Messages, m => m.Contains("Biography:") && m.Contains("Alt") && m.Contains("Neu"));
     }
+
+    [Fact]
+    public async Task MultiLevel_Project_Report_Comment_Logging_Works()
+    {
+        var (db, sink) = CreateDb();
+        var project = new Project { Name = "Apollo" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+
+        // Add a report under project
+        var report = new StatusReport { Title = "Week 1" };
+        project.Reports.Add(report);
+        await db.SaveChangesAsync();
+        Assert.Contains(sink.Messages, m => m.Contains("Week 1 (StatusReport) was added to Reports"));
+
+        // Add a comment under report
+        var comment = new Comment { Title = "Note", Text = "All good" };
+        report.Comments.Add(comment);
+        await db.SaveChangesAsync();
+        Assert.Contains(sink.Messages, m => m.Contains("Note (Comment) was added to Comments"));
+
+        // Update comment text (property change)
+        comment.Text = "Minor delay";
+        await db.SaveChangesAsync();
+        Assert.Contains(sink.Messages, m => m.Contains("Text:") && m.Contains("All good") && m.Contains("Minor delay"));
+
+        // Remove comment
+        report.Comments.Remove(comment);
+        await db.SaveChangesAsync();
+        Assert.Contains(sink.Messages, m => m.Contains("Note (Comment) was removed from Comments"));
+    }
+
+    [Fact]
+    public async Task MultiLevel_Anchoring_Groups_By_Project()
+    {
+        // Arrange: set up a structured audit store and reader
+        var storeOpts = new DbContextOptionsBuilder<AuditStoreDbContext>()
+            .UseInMemoryDatabase("audit-" + System.Guid.NewGuid())
+            .Options;
+        await using var auditDb = new AuditStoreDbContext(storeOpts);
+        var structuredSink = new EfCoreStructuredAuditSink(auditDb);
+
+        // Create two events touching nested entities under the same Project root
+        var projectRoot = new AuditAnchor { RootType = nameof(Project), RootId = "1" };
+        var e1 = new AuditEvent
+        {
+            TimestampUtc = System.DateTime.UtcNow.AddMinutes(-2),
+            Entries =
+            {
+                new AuditEntry
+                {
+                    EntityType = nameof(StatusReport), EntityId = "10",
+                    RootType = projectRoot.RootType, RootId = projectRoot.RootId,
+                    Changes = { new AuditChange { ChangeType = AuditChangeType.Property, DisplayName = "Title", Old = "W0", New = "W1" } }
+                }
+            }
+        };
+        var e2 = new AuditEvent
+        {
+            TimestampUtc = System.DateTime.UtcNow.AddMinutes(-1),
+            Entries =
+            {
+                new AuditEntry
+                {
+                    EntityType = nameof(Comment), EntityId = "20",
+                    RootType = projectRoot.RootType, RootId = projectRoot.RootId,
+                    Changes = { new AuditChange { ChangeType = AuditChangeType.Property, DisplayName = "Text", Old = "A", New = "B" } }
+                }
+            }
+        };
+        await structuredSink.WriteAsync(new[] { e1, e2 });
+
+        var reader = new EfCoreAuditHistoryReader(auditDb);
+        var results = new System.Collections.Generic.List<AuditEvent>();
+        await foreach (var e in reader.GetByRootAsync(nameof(Project), "1", fromUtc: null, toUtc: null))
+            results.Add(e);
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal("W1", results[0].Entries[0].Changes[0].New);
+        Assert.Equal("B", results[1].Entries[0].Changes[0].New);
+    }
 }

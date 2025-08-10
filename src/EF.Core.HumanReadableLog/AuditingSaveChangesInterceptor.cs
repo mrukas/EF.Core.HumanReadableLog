@@ -479,6 +479,9 @@ partial class AuditingSaveChangesInterceptor
                                 RelatedEntityType = childEntity.GetType().Name,
                                 RelatedEntityId = new Structured.DefaultEntityKeyFormatter().FormatEntityKey(otherEntry),
                                 RelatedEntityTitle = childTitle,
+                                ParentEntityType = principalType.ClrType.Name,
+                                ParentEntityId = new Structured.DefaultEntityKeyFormatter().FormatEntityKey(principalEntry!),
+                                ParentEntityTitle = ResolveEntityTitle(principalEntry!.Entity) ?? ResolveEntityDisplay(principalEntry!.Entity.GetType()).singular,
                                 Message = msg
                             });
                         }
@@ -508,6 +511,13 @@ partial class AuditingSaveChangesInterceptor
                             RelatedEntityType = childEntity.GetType().Name,
                             RelatedEntityId = new Structured.DefaultEntityKeyFormatter().FormatEntityKey(entry),
                             RelatedEntityTitle = childTitle,
+                            ParentEntityType = fk.PrincipalEntityType.ClrType.Name,
+                            ParentEntityId = FindPrincipalByKey(entry.Context.ChangeTracker, fk, entry) is { } p
+                                ? new Structured.DefaultEntityKeyFormatter().FormatEntityKey(p)
+                                : string.Empty,
+                            ParentEntityTitle = FindPrincipalByKey(entry.Context.ChangeTracker, fk, entry) is { } p2
+                                ? (ResolveEntityTitle(p2.Entity) ?? ResolveEntityDisplay(p2.Entity.GetType()).singular)
+                                : null,
                             Message = msg
                         });
                     }

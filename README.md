@@ -293,3 +293,21 @@ Tokens you can use:
 - Collection changes: `{Title}`, `{EntitySingular}`, `{CollectionDisplay}`
 
 Note: The included SampleApp prints audit messages twice — first with the default English localizer, then after switching to the German localizer at runtime (for demo purposes).
+
+## Displaying history in the context of a root (with parent titles)
+
+If you want to show messages like:
+
+- Week 1 (StatusReport) -> Note (Comment) was removed from Comments
+
+You can format structured events with a parent prefix using `AuditHistoryFormatter`:
+
+```csharp
+var reader = sp.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.IAuditHistoryReader>();
+var lines = new List<string>();
+await foreach (var evt in reader.GetByRootAsync("Project", "1", null, null))
+{
+    lines.AddRange(EF.Core.HumanReadableLog.Structured.Formatting.AuditHistoryFormatter.FormatWithParentContext(new[]{evt}));
+}
+foreach (var l in lines) Console.WriteLine(l);
+```

@@ -32,6 +32,9 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     public DbSet<M2MRight> Rights => Set<M2MRight>();
     public DbSet<O2OUser> O2OUsers => Set<O2OUser>();
     public DbSet<O2OProfile> O2OProfiles => Set<O2OProfile>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<StatusReport> StatusReports => Set<StatusReport>();
+    public DbSet<Comment> Comments => Set<Comment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +67,20 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
             .HasOne(u => u.Profile)
             .WithOne(p => p.User)
             .HasForeignKey<O2OProfile>(p => p.UserId);
+
+        // Project -> StatusReport (1:n)
+        modelBuilder.Entity<Project>()
+            .HasMany(p => p.Reports)
+            .WithOne(r => r.Project!)
+            .HasForeignKey(r => r.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // StatusReport -> Comment (1:n)
+        modelBuilder.Entity<StatusReport>()
+            .HasMany(r => r.Comments)
+            .WithOne(c => c.StatusReport!)
+            .HasForeignKey(c => c.StatusReportId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

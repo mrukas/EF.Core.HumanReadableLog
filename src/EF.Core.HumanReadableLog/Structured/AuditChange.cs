@@ -19,6 +19,11 @@ public sealed class AuditChange
     public string? RelatedEntityId { get; init; }
     public string? RelatedEntityTitle { get; init; }
 
+    // Parent entity (for relationship changes) to enable contextual formatting
+    public string? ParentEntityType { get; init; }
+    public string? ParentEntityId { get; init; }
+    public string? ParentEntityTitle { get; init; }
+
     // Rendered human message (optional but useful for UI)
     public string? Message { get; init; }
 }

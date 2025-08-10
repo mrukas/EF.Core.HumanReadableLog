@@ -43,5 +43,8 @@ internal class AuditChangeRow
     public string? RelatedEntityType { get; set; }
     public string? RelatedEntityId { get; set; }
     public string? RelatedEntityTitle { get; set; }
+    public string? ParentEntityType { get; set; }
+    public string? ParentEntityId { get; set; }
+    public string? ParentEntityTitle { get; set; }
     public string? Message { get; set; }
 }

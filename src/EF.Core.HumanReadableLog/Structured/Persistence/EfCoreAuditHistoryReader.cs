@@ -46,6 +46,9 @@ internal sealed class EfCoreAuditHistoryReader(AuditStoreDbContext db) : IAuditH
                     RelatedEntityType = ch.RelatedEntityType,
                     RelatedEntityId = ch.RelatedEntityId,
                     RelatedEntityTitle = ch.RelatedEntityTitle,
+                    ParentEntityType = ch.ParentEntityType,
+                    ParentEntityId = ch.ParentEntityId,
+                    ParentEntityTitle = ch.ParentEntityTitle,
                     Message = ch.Message
                 });
             }
@@ -106,6 +109,9 @@ internal sealed class EfCoreAuditHistoryReader(AuditStoreDbContext db) : IAuditH
                     RelatedEntityType = ch.RelatedEntityType,
                     RelatedEntityId = ch.RelatedEntityId,
                     RelatedEntityTitle = ch.RelatedEntityTitle,
+                    ParentEntityType = ch.ParentEntityType,
+                    ParentEntityId = ch.ParentEntityId,
+                    ParentEntityTitle = ch.ParentEntityTitle,
                     Message = ch.Message
                 });
             }

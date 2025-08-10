@@ -45,6 +45,9 @@ internal sealed class EfCoreStructuredAuditSink(AuditStoreDbContext db) : IStruc
                         RelatedEntityType = ch.RelatedEntityType,
                         RelatedEntityId = ch.RelatedEntityId,
                         RelatedEntityTitle = ch.RelatedEntityTitle,
+                        ParentEntityType = ch.ParentEntityType,
+                        ParentEntityId = ch.ParentEntityId,
+                        ParentEntityTitle = ch.ParentEntityTitle,
                         Message = ch.Message
                     });
                 }
