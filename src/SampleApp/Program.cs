@@ -60,8 +60,9 @@ public class Program
         var auditDb2 = services.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.AuditStoreDbContext>();
 
         var firstPet2 = await db2.Pets.FirstAsync();
+        firstPet2.Name = "dsfsdf";
 
-        db2.Remove(firstPet2);
+        // db2.Remove(firstPet2);
         await db2.SaveChangesAsync();
         // Fetch and print history for user2 as demo
         var history = services.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.IAuditHistoryReader>();

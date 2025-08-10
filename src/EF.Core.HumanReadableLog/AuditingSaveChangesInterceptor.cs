@@ -342,6 +342,65 @@ public sealed partial class AuditingSaveChangesInterceptor : SaveChangesIntercep
         return result;
     }
 
+    // Original-value variants for breadcrumb stability on rename
+    private string? ResolveEntityOriginalTitle(EntityEntry entry)
+    {
+        var entityType = entry.Entity.GetType();
+        // Template takes precedence
+        var templateAttr = entityType.GetCustomAttribute<AuditEntityTitleTemplateAttribute>();
+        if (templateAttr is not null)
+        {
+            var rendered = RenderTemplateFromOriginalValues(templateAttr.Template, entry);
+            if (!string.IsNullOrWhiteSpace(rendered)) return rendered;
+        }
+
+        // Single property marked as title
+        var pi = entityType.GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .FirstOrDefault(p => p.GetCustomAttribute<AuditEntityTitleAttribute>() is not null);
+        if (pi is not null)
+        {
+            var propEntry = entry.Properties.FirstOrDefault(p => string.Equals(p.Metadata.Name, pi.Name, StringComparison.OrdinalIgnoreCase));
+            if (propEntry is not null)
+            {
+                var s = propEntry.OriginalValue?.ToString();
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+        }
+
+        return null;
+    }
+
+    private string RenderTemplateFromOriginalValues(string template, EntityEntry entry)
+    {
+        var result = template;
+        int start = 0;
+        while ((start = result.IndexOf('{', start)) >= 0)
+        {
+            var end = result.IndexOf('}', start + 1);
+            if (end < 0) break;
+            var token = result.Substring(start, end - start + 1);
+            var path = token.Trim('{', '}').Trim();
+            var value = ResolvePathFromOriginalValues(entry, path);
+            result = result.Remove(start, end - start + 1).Insert(start, value);
+            start += value.Length;
+        }
+        return result;
+    }
+
+    private string ResolvePathFromOriginalValues(EntityEntry entry, string path)
+    {
+        // Best-effort: support single-segment paths from original values. Nested not supported here.
+        if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+        if (path.Contains('.'))
+        {
+            // Not supported in this minimal implementation; fall back to empty
+            return string.Empty;
+        }
+        var prop = entry.Properties.FirstOrDefault(p => string.Equals(p.Metadata.Name, path, StringComparison.OrdinalIgnoreCase));
+        if (prop is null) return string.Empty;
+        return FormatValue(prop.OriginalValue);
+    }
+
     private string ResolvePath(object? current, string path)
     {
         if (current is null) return string.Empty;
@@ -407,6 +466,31 @@ partial class AuditingSaveChangesInterceptor
                 // Property changes
                 if (entry.State == EntityState.Modified)
                 {
+                    // Try to resolve parent collection context (e.g., User.Haustiere -> Pet)
+                    string? pathCollectionDisplay = null;
+                    // For breadcrumbs use the OLD title (original values) so it stays stable across the rename
+                    string? pathChildTitle = ResolveEntityOriginalTitle(entry) ?? ResolveEntityDisplay(entry.Entity.GetType()).singular;
+                    string? parentEntityTypeName = null;
+                    string? parentEntityId = null;
+                    string? parentEntityTitle = null;
+                    foreach (var fk in entry.Metadata.GetForeignKeys())
+                    {
+                        var principalCollection = fk.PrincipalToDependent;
+                        if (principalCollection is null || !principalCollection.IsCollection) continue;
+                        var pi = principalCollection.PropertyInfo;
+                        var resolved = pi is null ? null : ResolvePropertyDisplay(pi);
+                        pathCollectionDisplay = string.IsNullOrWhiteSpace(resolved) ? principalCollection.Name : resolved;
+
+                        var principalEntry = FindPrincipalByKey(entry.Context.ChangeTracker, fk, entry);
+                        if (principalEntry is not null)
+                        {
+                            parentEntityTypeName = fk.PrincipalEntityType.ClrType.Name;
+                            parentEntityId = new Structured.DefaultEntityKeyFormatter().FormatEntityKey(principalEntry);
+                            parentEntityTitle = ResolveEntityTitle(principalEntry.Entity) ?? ResolveEntityDisplay(principalEntry.Entity.GetType()).singular;
+                        }
+                        break;
+                    }
+
                     foreach (var prop in entry.Properties)
                     {
                         if (!prop.IsModified) continue;
@@ -418,6 +502,10 @@ partial class AuditingSaveChangesInterceptor
                         var template = string.IsNullOrWhiteSpace(_options.PropertyChangeTemplate)
                             ? _options.Localizer.PropertyChangeTemplate
                             : _options.PropertyChangeTemplate;
+                        var baseMsg = template.Replace("{DisplayName}", display).Replace("{Old}", oldStr).Replace("{New}", newStr);
+                        var finalMsg = (!string.IsNullOrWhiteSpace(pathCollectionDisplay) && !string.IsNullOrWhiteSpace(pathChildTitle))
+                            ? ($"[{pathCollectionDisplay} → {pathChildTitle}] " + baseMsg)
+                            : baseMsg;
                         e.Changes.Add(new Structured.AuditChange
                         {
                             ChangeType = Structured.AuditChangeType.Property,
@@ -425,7 +513,11 @@ partial class AuditingSaveChangesInterceptor
                             DisplayName = display,
                             Old = oldStr,
                             New = newStr,
-                            Message = template.Replace("{DisplayName}", display).Replace("{Old}", oldStr).Replace("{New}", newStr)
+                            CollectionDisplay = pathCollectionDisplay,
+                            ParentEntityType = parentEntityTypeName,
+                            ParentEntityId = parentEntityId,
+                            ParentEntityTitle = parentEntityTitle,
+                            Message = finalMsg
                         });
                     }
                 }
