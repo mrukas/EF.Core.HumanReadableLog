@@ -17,6 +17,9 @@ public sealed class AuditStoreDbContext(DbContextOptions<AuditStoreDbContext> op
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Use a dedicated default schema for all audit tables where supported (ignored by providers like SQLite)
+        modelBuilder.HasDefaultSchema("audit");
+
         modelBuilder.Entity<AuditEventRow>(b =>
         {
             b.HasKey(e => e.Id);
