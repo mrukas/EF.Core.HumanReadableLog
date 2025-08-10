@@ -3,6 +3,19 @@ using EF.Core.HumanReadableLog.Attributes;
 
 namespace EF.Core.HumanReadableLog.Tests;
 
+[AuditEntityDisplay("Company", "Companies")]
+[AuditEntityTitleTemplate("{Name}")]
+public class Company
+{
+    public int Id { get; set; }
+    [AuditEntityTitle]
+    [AuditDisplay("Name")]
+    public string Name { get; set; } = string.Empty;
+
+    [AuditDisplay("Projects")]
+    public List<Project> Projects { get; set; } = new();
+}
+
 [AuditEntityDisplay("Project", "Projects")]
 [AuditEntityTitleTemplate("{Name}")]
 public class Project
@@ -11,6 +24,9 @@ public class Project
     [AuditEntityTitle]
     [AuditDisplay("Name")]
     public string Name { get; set; } = string.Empty;
+
+    public int CompanyId { get; set; }
+    public Company? Company { get; set; }
 
     [AuditDisplay("Reports")]
     public List<StatusReport> Reports { get; set; } = new();

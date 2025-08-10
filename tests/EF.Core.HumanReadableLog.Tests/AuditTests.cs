@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Xunit;
 using EF.Core.HumanReadableLog.Structured;
 using EF.Core.HumanReadableLog.Structured.Persistence;
+using EF.Core.HumanReadableLog.Structured.Formatting;
 
 namespace EF.Core.HumanReadableLog.Tests;
 
@@ -402,5 +403,55 @@ public class AuditTests
         Assert.Equal(2, results.Count);
         Assert.Equal("W1", results[0].Entries[0].Changes[0].New);
         Assert.Equal("B", results[1].Entries[0].Changes[0].New);
+    }
+
+    [Fact]
+    public async Task FourLevel_Context_Formatting_Works()
+    {
+        // Arrange structured store
+        var storeOpts = new DbContextOptionsBuilder<AuditStoreDbContext>()
+            .UseInMemoryDatabase("audit-" + System.Guid.NewGuid())
+            .Options;
+        await using var auditDb = new AuditStoreDbContext(storeOpts);
+        var structuredSink = new EfCoreStructuredAuditSink(auditDb);
+
+        // Seed events for Company->Project->StatusReport->Comment deletion
+        var company = new AuditAnchor { RootType = nameof(Company), RootId = "1", RootTitle = "Acme" };
+        var e = new AuditEvent
+        {
+            TimestampUtc = System.DateTime.UtcNow,
+            Entries =
+            {
+                new AuditEntry
+                {
+                    EntityType = nameof(StatusReport), EntityId = "10", EntityTitle = "Week 1",
+                    RootType = company.RootType, RootId = company.RootId, RootTitle = company.RootTitle,
+                    Changes =
+                    {
+                        new AuditChange
+                        {
+                            ChangeType = AuditChangeType.CollectionRemoved,
+                            CollectionDisplay = "Comments",
+                            RelatedEntityType = nameof(Comment),
+                            RelatedEntityId = "20",
+                            RelatedEntityTitle = "Note",
+                            ParentEntityType = nameof(Project),
+                            ParentEntityId = "5",
+                            ParentEntityTitle = "Apollo",
+                            Message = null // force fallback formatting via localizer
+                        }
+                    }
+                }
+            }
+        };
+        await structuredSink.WriteAsync(new[]{ e });
+
+        var reader = new EfCoreAuditHistoryReader(auditDb);
+        var events = new System.Collections.Generic.List<AuditEvent>();
+        await foreach (var evt in reader.GetByRootAsync(nameof(Company), "1"))
+            events.Add(evt);
+
+        var lines = AuditHistoryFormatter.FormatWithParentContext(events).ToList();
+        Assert.Contains(lines, l => l.Contains("Acme (Company) -> Apollo (Project) -> Week 1 (StatusReport) -> Note (Comment) was removed from Comments"));
     }
 }

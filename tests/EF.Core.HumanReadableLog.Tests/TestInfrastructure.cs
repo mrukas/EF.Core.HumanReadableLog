@@ -35,6 +35,7 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<StatusReport> StatusReports => Set<StatusReport>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<Company> Companies => Set<Company>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,13 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
             .HasOne(u => u.Profile)
             .WithOne(p => p.User)
             .HasForeignKey<O2OProfile>(p => p.UserId);
+
+        // Company -> Project (1:n)
+        modelBuilder.Entity<Company>()
+            .HasMany(c => c.Projects)
+            .WithOne(p => p.Company!)
+            .HasForeignKey(p => p.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Project -> StatusReport (1:n)
         modelBuilder.Entity<Project>()

@@ -61,21 +61,26 @@ public static class AuditHistoryFormatter
                                 break;
                         }
                     }
-                    // Build context chain: Entry as parent, and if this is a collection change with a Parent*, include that too for deeper levels
-                    string prefix;
+                    // Build context chain: Root -> Parent -> Entry (if available)
+                    var labels = new List<string>(capacity: 3);
+                    if (!string.IsNullOrWhiteSpace(entry.RootTitle) || !string.IsNullOrWhiteSpace(entry.RootType))
+                    {
+                        var rootLabel = string.IsNullOrWhiteSpace(entry.RootTitle)
+                            ? entry.RootType ?? string.Empty
+                            : (string.IsNullOrWhiteSpace(entry.RootType) ? entry.RootTitle : $"{entry.RootTitle} ({entry.RootType})");
+                        if (!string.IsNullOrWhiteSpace(rootLabel)) labels.Add(rootLabel);
+                    }
                     if (!string.IsNullOrWhiteSpace(change.ParentEntityTitle) || !string.IsNullOrWhiteSpace(change.ParentEntityType))
                     {
                         var parentLabel = string.IsNullOrWhiteSpace(change.ParentEntityTitle)
                             ? change.ParentEntityType ?? string.Empty
                             : (string.IsNullOrWhiteSpace(change.ParentEntityType) ? change.ParentEntityTitle : $"{change.ParentEntityTitle} ({change.ParentEntityType})");
-                        var entryLabel = entryTitle is null ? (entryType ?? string.Empty) : (entryType is null ? entryTitle : $"{entryTitle} ({entryType})");
-                        prefix = string.IsNullOrWhiteSpace(entryLabel) ? parentLabel + " -> " : parentLabel + " -> " + entryLabel + " -> ";
+                        if (!string.IsNullOrWhiteSpace(parentLabel)) labels.Add(parentLabel);
                     }
-                    else
-                    {
-                        prefix = entryTitle is null ? string.Empty : (entryType is null ? entryTitle + " -> " : $"{entryTitle} ({entryType}) -> ");
-                    }
+                    var entryLabel = entryTitle is null ? (entryType ?? string.Empty) : (entryType is null ? entryTitle : $"{entryTitle} ({entryType})");
+                    if (!string.IsNullOrWhiteSpace(entryLabel)) labels.Add(entryLabel);
 
+                    var prefix = labels.Count > 0 ? string.Join(" -> ", labels) + " -> " : string.Empty;
                     yield return prefix + msg;
                 }
             }
