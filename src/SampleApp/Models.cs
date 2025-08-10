@@ -2,7 +2,7 @@ using EF.Core.HumanReadableLog.Attributes;
 
 namespace SampleApp;
 
-[AuditEntityDisplay("Haustier", "Haustiere")]
+[AuditEntityDisplay("Tier", "Tiere")]
 [AuditEntityTitleTemplate("{Name}")]
 public class Pet
 {
@@ -12,9 +12,11 @@ public class Pet
     [AuditDisplay("Name")]
     public string Name { get; set; } = string.Empty;
 
+    [AuditDisplay("Lieblingsessen")]
     public List<Food> FavoriteFoods { get; set; } = new();
 }
 
+[AuditEntityDisplay("Essen", "Essen")]
 public class Food
 {
     public int Id { get; set; }
@@ -25,6 +27,10 @@ public class Food
 
     [AuditDisplay("Kalorien")]
     public int Calories { get; set; }
+
+    public Pet Pet { get; set; } = null!;
+
+    public int PetId { get; set; }
 }
 
 [AuditEntityDisplay("Benutzer", "Benutzer")]
@@ -34,4 +40,7 @@ public class User
 
     [AuditDisplay("Haustiere")]
     public List<Pet> Pets { get; set; } = new();
+
+    [AuditDisplay("Name")]
+    public string Name { get; set; } = string.Empty;
 }

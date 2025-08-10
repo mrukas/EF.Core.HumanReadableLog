@@ -2,6 +2,7 @@ using EF.Core.HumanReadableLog.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using EF.Core.HumanReadableLog.Localization;
 
 namespace SampleApp;
 
@@ -26,7 +27,7 @@ public class Program
                 .ConfigureServices(s =>
                 {
                     // Default: English localizer
-                    s.AddEfCoreAuditLogging();
+                    s.AddEfCoreAuditLogging(opts => opts.Localizer = new GermanAuditLocalizer());
                     // Add a SQLite-based audit store next to sample.db for demo
                     s.AddEfCoreAuditStore(o => o.UseSqlite("Data Source=audit.db",
                         opts => { opts.MigrationsHistoryTable("__AuditMigrationHistory"); }));
@@ -88,7 +89,7 @@ public class Program
         await db2.SaveChangesAsync();
         // Fetch and print history for user2 as demo
         var history = services.GetRequiredService<EF.Core.HumanReadableLog.Structured.Persistence.IAuditHistoryReader>();
-        await foreach (var evt in history.GetByRootAsync("User", user2Id))
+        await foreach (var evt in history.GetByRootAsync("User", user.Id.ToString()))
         {
             foreach (var entry in evt.Entries)
             {
