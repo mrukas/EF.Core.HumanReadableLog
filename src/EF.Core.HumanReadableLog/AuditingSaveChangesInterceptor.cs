@@ -108,13 +108,13 @@ public sealed partial class AuditingSaveChangesInterceptor : SaveChangesIntercep
             var entityType = entry.Entity.GetType();
             var (entitySingular, entityPlural) = ResolveEntityDisplay(entityType);
 
-        if (entry.State == EntityState.Modified)
+            if (entry.State == EntityState.Modified)
             {
                 foreach (var prop in entry.Properties)
                 {
-            if (!prop.IsModified) continue;
-            // Skip shadow properties (e.g., implicit FK columns) to avoid unreadable logs like ": 1 -> ∅"
-            if (prop.Metadata.IsShadowProperty()) continue;
+                    if (!prop.IsModified) continue;
+                    // Skip shadow properties (e.g., implicit FK columns) to avoid unreadable logs like ": 1 -> ∅"
+                    if (prop.Metadata.IsShadowProperty()) continue;
                     if (ShouldIgnore(prop.Metadata.PropertyInfo)) continue;
 
                     var displayName = ResolvePropertyDisplay(prop.Metadata.PropertyInfo);
@@ -405,12 +405,12 @@ partial class AuditingSaveChangesInterceptor
                 };
 
                 // Property changes
-        if (entry.State == EntityState.Modified)
+                if (entry.State == EntityState.Modified)
                 {
                     foreach (var prop in entry.Properties)
                     {
-            if (!prop.IsModified) continue;
-            if (prop.Metadata.IsShadowProperty()) continue;
+                        if (!prop.IsModified) continue;
+                        if (prop.Metadata.IsShadowProperty()) continue;
                         if (ShouldIgnore(prop.Metadata.PropertyInfo)) continue;
                         var display = ResolvePropertyDisplay(prop.Metadata.PropertyInfo);
                         var oldStr = FormatValue(prop.OriginalValue);

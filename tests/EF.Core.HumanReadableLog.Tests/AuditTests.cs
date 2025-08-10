@@ -444,7 +444,7 @@ public class AuditTests
                 }
             }
         };
-        await structuredSink.WriteAsync(new[]{ e });
+        await structuredSink.WriteAsync(new[] { e });
 
         var reader = new EfCoreAuditHistoryReader(auditDb);
         var events = new System.Collections.Generic.List<AuditEvent>();
@@ -473,9 +473,9 @@ public class AuditTests
         // Ensure add message present
         Assert.Contains(sink.Messages, m => m.Contains("Bone (Food) was added to FavoriteFoods"));
 
-    // Remove via deletion (consistent with other tests) and ensure remove message present
-    db.Remove(food);
-    await db.SaveChangesAsync();
+        // Remove via deletion (consistent with other tests) and ensure remove message present
+        db.Remove(food);
+        await db.SaveChangesAsync();
         Assert.Contains(sink.Messages, m => m.Contains("Bone (Food) was removed from FavoriteFoods"));
 
         // Verify no shadow-property noise

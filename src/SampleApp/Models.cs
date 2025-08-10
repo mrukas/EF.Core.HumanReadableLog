@@ -15,7 +15,8 @@ public class Pet
     public List<Food> FavoriteFoods { get; set; } = new();
 }
 
-public class Food {
+public class Food
+{
     public int Id { get; set; }
 
     [AuditEntityTitle]
