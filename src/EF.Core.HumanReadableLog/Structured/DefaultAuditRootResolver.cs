@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EF.Core.HumanReadableLog.Structured;
 
@@ -32,7 +33,8 @@ internal sealed class DefaultAuditRootResolver : IAuditRootResolver
         if (fkToPrincipal?.PrincipalEntityType is not null)
         {
             var principalEntry = entry.References
-                .FirstOrDefault(r => r.TargetEntry?.Metadata == fkToPrincipal.PrincipalEntityType)?.TargetEntry;
+                .FirstOrDefault(r => r.TargetEntry?.Metadata == fkToPrincipal.PrincipalEntityType)?.TargetEntry
+                ?? FindPrincipalByKey(entry.Context.ChangeTracker, fkToPrincipal, entry);
             if (principalEntry is not null)
             {
                 var id = new DefaultEntityKeyFormatter().FormatEntityKey(principalEntry);
@@ -64,5 +66,29 @@ internal sealed class DefaultAuditRootResolver : IAuditRootResolver
         }
         catch { }
         return false;
+    }
+
+    private static EntityEntry? FindPrincipalByKey(ChangeTracker tracker, IForeignKey fk, EntityEntry dependentEntry)
+    {
+        try
+        {
+            var depProps = fk.Properties;
+            var principalKeyProps = fk.PrincipalKey.Properties;
+            var depValues = depProps.Select(p => dependentEntry.Property(p.Name).CurrentValue).ToArray();
+
+            foreach (var e in tracker.Entries().Where(e => e.Metadata == fk.PrincipalEntityType))
+            {
+                bool match = true;
+                for (int i = 0; i < principalKeyProps.Count; i++)
+                {
+                    var pkProp = principalKeyProps[i];
+                    var val = e.Property(pkProp.Name).CurrentValue;
+                    if (!object.Equals(val, depValues[i])) { match = false; break; }
+                }
+                if (match) return e;
+            }
+        }
+        catch { }
+        return null;
     }
 }
